@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reviews Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Text:400,500,600&display=swap" rel="stylesheet" />
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRhuoRZ2Rzg-XX_O4a6lmrC7DDNhXAilEIGg9HQkvf-BL1-nRDujZ7oLfPHHFskdm-PJX9MYKnWmqtk/pub?gid=1209334848&single=true&output=csv';
+      const reviewContainer = document.getElementById('reviewContainer');
+      const archivedContainer = document.getElementById('archivedContainer');
+      const stat7 = document.getElementById('stat7');
+      const stat30 = document.getElementById('stat30');
+      const stat90 = document.getElementById('stat90');
+      const toggleArchived = document.getElementById('toggleArchived');
+
+      toggleArchived.addEventListener('change', () => {
+        if (toggleArchived.checked) {
+          reviewContainer.style.display = 'none';
+          archivedContainer.style.display = 'flex';
+        } else {
+          reviewContainer.style.display = 'flex';
+          archivedContainer.style.display = 'none';
+        }
+      });
+
+      function parseCSV(csvText) {
+        const rows = [];
+        let currentRow = [];
+        let currentValue = '';
+        let insideQuotes = false;
+
+        for (let i = 0; i < csvText.length; i++) {
+          const char = csvText[i];
+          const nextChar = csvText[i + 1];
+
+          if (char === '"') {
+            if (insideQuotes && nextChar === '"') {
+              currentValue += '"';
+              i++;
+            } else {
+              insideQuotes = !insideQuotes;
+            }
+          } else if (char === ',' && !insideQuotes) {
+            currentRow.push(currentValue);
+            currentValue = '';
+          } else if ((char === '\n' || char === '\r') && !insideQuotes) {
+            if (currentValue || currentRow.length > 0) {
+              currentRow.push(currentValue);
+              rows.push(currentRow);
+              currentRow = [];
+              currentValue = '';
+            }
+            if (char === '\r' && nextChar === '\n') i++;
+          } else {
+            currentValue += char;
+          }
+        }
+        if (currentValue || currentRow.length > 0) {
+          currentRow.push(currentValue);
+          rows.push(currentRow);
+        }
+        return rows;
+      }
+
+      fetch(url)
+        .then(res => res.text())
+        .then(text => {
+          const rows = parseCSV(text);
+          const headers = rows.shift();
+          const dateIdx = headers.findIndex(h => h.toLowerCase().includes('date'));
+          const customerIdx = headers.findIndex(h => h.toLowerCase().includes('customer'));
+          const ratingIdx = headers.findIndex(h => h.toLowerCase().includes('rating'));
+          const contentIdx = headers.findIndex(h => h.toLowerCase().includes('content'));
+          const archivedIdx = headers.findIndex(h => h.toLowerCase().includes('archived'));
+
+          let now = new Date();
+          let count7 = 0, count30 = 0, count90 = 0;
+
+          rows.forEach(cols => {
+            const date = new Date(cols[dateIdx]);
+            const rating = parseInt(cols[ratingIdx]);
+            const archived = cols[archivedIdx]?.toLowerCase() === 'yes';
+
+            if (isNaN(rating)) return;
+
+            const diffDays = (now - date) / (1000 * 60 * 60 * 24);
+            if (!archived) {
+              if (diffDays <= 7) count7++;
+              if (diffDays <= 30) count30++;
+              if (diffDays <= 90) count90++;
+            }
+
+            const reviewCard = document.createElement('div');
+            reviewCard.className = 'review-card';
+            reviewCard.innerHTML = `
+              <div class="review-header">
+                <div>
+                  <div class="customer-name">${cols[customerIdx]}</div>
+                  <div class="review-rating">${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}</div>
+                </div>
+                <div class="review-date">${date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' })}</div>
+              </div>
+              <p class="review-content">${cols[contentIdx] || '—'}</p>
+            `;
+
+            if (archived) {
+              archivedContainer.appendChild(reviewCard);
+            } else {
+              reviewContainer.appendChild(reviewCard);
+            }
+          });
+
+          stat7.textContent = count7;
+          stat30.textContent = count30;
+          stat90.textContent = count90;
+        })
+        .catch(err => console.error('Failed to fetch:', err));
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #fcfcfc;
+      --text: #333;
+    }
+    body {
+      font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      font-size: 24px;
+      font-weight: 600;
+      background: linear-gradient(to right, #007aff, #00c6ff);
+      color: white;
+      padding: 16px;
+      text-align: center;
+    }
+    .branding {
+      font-size: 14px;
+      text-align: center;
+      margin-top: 8px;
+      color: #555;
+      font-style: italic;
+    }
+    .toggle-row {
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+    }
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .card-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 32px;
+    }
+    .card {
+      flex: 1;
+      background: #fff;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 0 12px rgba(0,0,0,0.05);
+      text-align: center;
+      margin: 0 8px;
+    }
+    .card h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 500;
+    }
+    .card p {
+      font-size: 28px;
+      color: #007aff;
+      margin-top: 12px;
+      font-weight: bold;
+    }
+    .section-title {
+      font-size: 20px;
+      margin: 24px 0 12px;
+    }
+    #reviewContainer, #archivedContainer {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .review-card {
+      background: #fff;
+      padding: 16px 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    }
+    .review-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .customer-name {
+      font-weight: 600;
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+    .review-rating {
+      color: #f59e0b;
+      font-size: 18px;
+    }
+    .review-date {
+      color: #888;
+      font-size: 14px;
+    }
+    .review-content {
+      margin-top: 10px;
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <header>📈 Reviews Dashboard</header>
+  <div class="branding">by Ketan W</div>
+  <div class="toggle-row">
+    <label for="toggleArchived">Show Archived Reviews</label>
+    <input type="checkbox" id="toggleArchived" />
+  </div>
+  <div class="container">
+    <div class="card-row">
+      <div class="card">
+        <h3>Last 7 Days</h3>
+        <p id="stat7">0</p>
+      </div>
+      <div class="card">
+        <h3>Last 30 Days</h3>
+        <p id="stat30">0</p>
+      </div>
+      <div class="card">
+        <h3>Last 90 Days</h3>
+        <p id="stat90">0</p>
+      </div>
+    </div>
+    <h2 class="section-title">Active Reviews</h2>
+    <div id="reviewContainer"></div>
+    <h2 class="section-title">Archived Reviews</h2>
+    <div id="archivedContainer"></div>
+  </div>
+</body>
+</html>
