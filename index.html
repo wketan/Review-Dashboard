@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Reviews Dashboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Text:400,500,600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRhuoRZ2Rzg-XX_O4a6lmrC7DDNhXAilEIGg9HQkvf-BL1-nRDujZ7oLfPHHFskdm-PJX9MYKnWmqtk/pub?gid=1209334848&single=true&output=csv';
@@ -14,7 +14,10 @@
       const stat30 = document.getElementById('stat30');
       const stat90 = document.getElementById('stat90');
       const toggleArchived = document.getElementById('toggleArchived');
+      const searchInput = document.getElementById('searchInput');
+      let headers;
 
+      // Show archived reviews based on toggle
       toggleArchived.addEventListener('change', () => {
         if (toggleArchived.checked) {
           reviewContainer.style.display = 'none';
@@ -22,6 +25,19 @@
         } else {
           reviewContainer.style.display = 'flex';
           archivedContainer.style.display = 'none';
+        }
+      });
+
+      // Handle search input
+      searchInput.addEventListener('input', () => {
+        const query = searchInput.value.toLowerCase();
+        filterReviews(query);
+      });
+
+      searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          const query = searchInput.value.toLowerCase();
+          filterReviews(query);
         }
       });
 
@@ -68,12 +84,13 @@
         .then(res => res.text())
         .then(text => {
           const rows = parseCSV(text);
-          const headers = rows.shift();
+          headers = rows.shift();
           const dateIdx = headers.findIndex(h => h.toLowerCase().includes('date'));
           const customerIdx = headers.findIndex(h => h.toLowerCase().includes('customer'));
           const ratingIdx = headers.findIndex(h => h.toLowerCase().includes('rating'));
           const contentIdx = headers.findIndex(h => h.toLowerCase().includes('content'));
-          const archivedIdx = headers.findIndex(h => h.toLowerCase().includes('archived'));
+          const archivedAtIdx = headers.findIndex(h => h.toLowerCase().includes('archived at'));
+          const customerDomainIdx = headers.findIndex(h => h.toLowerCase().includes('customer domain'));
 
           let now = new Date();
           let count7 = 0, count30 = 0, count90 = 0;
@@ -81,12 +98,12 @@
           rows.forEach(cols => {
             const date = new Date(cols[dateIdx]);
             const rating = parseInt(cols[ratingIdx]);
-            const archived = cols[archivedIdx]?.toLowerCase() === 'yes';
+            const isArchived = cols[archivedAtIdx]?.trim() !== '';
 
             if (isNaN(rating)) return;
 
             const diffDays = (now - date) / (1000 * 60 * 60 * 24);
-            if (!archived) {
+            if (!isArchived) {
               if (diffDays <= 7) count7++;
               if (diffDays <= 30) count30++;
               if (diffDays <= 90) count90++;
@@ -94,10 +111,12 @@
 
             const reviewCard = document.createElement('div');
             reviewCard.className = 'review-card';
+            if (rating <= 3) reviewCard.classList.add('low-rating');
             reviewCard.innerHTML = `
               <div class="review-header">
                 <div>
                   <div class="customer-name">${cols[customerIdx]}</div>
+                  ${cols[customerDomainIdx] ? `<div class="customer-domain">${cols[customerDomainIdx]}</div>` : ''}
                   <div class="review-rating">${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}</div>
                 </div>
                 <div class="review-date">${date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' })}</div>
@@ -105,7 +124,7 @@
               <p class="review-content">${cols[contentIdx] || '—'}</p>
             `;
 
-            if (archived) {
+            if (isArchived) {
               archivedContainer.appendChild(reviewCard);
             } else {
               reviewContainer.appendChild(reviewCard);
@@ -120,107 +139,355 @@
     });
   </script>
   <style>
-    :root {
-      --bg: #fcfcfc;
-      --text: #333;
+    * {
+      box-sizing: border-box;
     }
+
+    :root {
+      --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      --accent-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+      --bg-primary: #0a0f1c;
+      --bg-secondary: #1a1f2e;
+      --bg-card: rgba(255, 255, 255, 0.05);
+      --text-primary: #ffffff;
+      --text-secondary: #b8c5d1;
+      --text-muted: #7c8db0;
+      --border: rgba(255, 255, 255, 0.1);
+      --shadow-light: 0 8px 32px rgba(0, 0, 0, 0.3);
+      --shadow-heavy: 0 20px 60px rgba(0, 0, 0, 0.4);
+    }
+
     body {
-      font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      background-image: 
+        radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.15) 0%, transparent 50%);
+      color: var(--text-primary);
       margin: 0;
       padding: 0;
+      min-height: 100vh;
     }
+
     header {
-      font-size: 24px;
-      font-weight: 600;
-      background: linear-gradient(to right, #007aff, #00c6ff);
+      font-size: 32px;
+      font-weight: 700;
+      background: var(--primary-gradient);
       color: white;
-      padding: 16px;
+      padding: 32px 16px 24px;
       text-align: center;
+      position: relative;
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      letter-spacing: -0.5px;
     }
+
     .branding {
       font-size: 14px;
       text-align: center;
       margin-top: 8px;
-      color: #555;
-      font-style: italic;
+      color: rgba(255, 255, 255, 0.7);
+      font-weight: 300;
+      letter-spacing: 0.5px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
     }
+
     .toggle-row {
-      padding: 16px;
+      padding: 24px;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 20px;
+      gap: 32px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(20px);
     }
-    .container {
-      max-width: 860px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-    .card-row {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 32px;
-    }
-    .card {
-      flex: 1;
-      background: #fff;
-      padding: 24px;
-      border-radius: 12px;
-      box-shadow: 0 0 12px rgba(0,0,0,0.05);
-      text-align: center;
-      margin: 0 8px;
-    }
-    .card h3 {
-      margin: 0;
-      font-size: 18px;
+
+    .toggle-row label {
+      color: var(--text-secondary);
       font-weight: 500;
+      font-size: 14px;
     }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 34px;
+      height: 20px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: 0.4s;
+      border-radius: 50px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 12px;
+      width: 12px;
+      border-radius: 50px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: 0.4s;
+    }
+
+    input:checked + .slider {
+      background-color: #4facfe;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(14px);
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 20px;
+    }
+
+    .card-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      margin-bottom: 48px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      padding: 32px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      text-align: center;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--accent-gradient);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .card:hover::before {
+      opacity: 1;
+    }
+
+    .card:hover {
+      transform: translateY(-8px);
+      box-shadow: var(--shadow-heavy);
+      border-color: rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .card h3 {
+      margin: 0 0 16px 0;
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
     .card p {
-      font-size: 28px;
-      color: #007aff;
-      margin-top: 12px;
-      font-weight: bold;
+      font-size: 36px;
+      color: var(--text-primary);
+      margin: 0;
+      font-weight: 700;
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
+
     .section-title {
-      font-size: 20px;
-      margin: 24px 0 12px;
+      font-size: 24px;
+      font-weight: 600;
+      margin: 48px 0 24px;
+      color: var(--text-primary);
+      position: relative;
+      padding-left: 16px;
     }
+
+    .section-title::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 4px;
+      height: 24px;
+      background: var(--secondary-gradient);
+      border-radius: 2px;
+    }
+
     #reviewContainer, #archivedContainer {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 20px;
     }
+
     .review-card {
-      background: #fff;
-      padding: 16px 20px;
-      border-radius: 12px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      padding: 24px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
     }
+
+    .review-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
+
+    .review-card:hover::before {
+      opacity: 1;
+    }
+
+    .review-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-light);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .review-card.low-rating {
+      background: linear-gradient(135deg, rgba(255, 77, 79, 0.1) 0%, rgba(255, 77, 79, 0.05) 100%);
+      border-left: 4px solid #ff4d4f;
+    }
+
     .review-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
+      margin-bottom: 16px;
     }
+
     .customer-name {
       font-weight: 600;
       font-size: 16px;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
+      color: var(--text-primary);
     }
+
+    .customer-domain {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 400;
+      margin-bottom: 8px;
+    }
+
     .review-rating {
-      color: #f59e0b;
+      color: #fbbf24;
       font-size: 18px;
+      text-shadow: 0 0 8px rgba(251, 191, 36, 0.3);
     }
+
     .review-date {
-      color: #888;
-      font-size: 14px;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 400;
     }
+
     .review-content {
-      margin-top: 10px;
-      color: var(--text);
-      font-size: 16px;
-      line-height: 1.4;
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 15px;
+      line-height: 1.6;
+      font-weight: 400;
+    }
+
+    input[type="text"] {
+      padding: 12px 20px;
+      font-size: 14px;
+      border-radius: 25px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      color: var(--text-primary);
+      width: 320px;
+      transition: all 0.3s ease;
+      font-weight: 400;
+    }
+
+    input[type="text"]::placeholder {
+      color: var(--text-muted);
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: rgba(79, 172, 254, 0.5);
+      box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: #4facfe;
+      cursor: pointer;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .container {
+        padding: 20px 16px;
+      }
+      
+      .toggle-row {
+        flex-direction: column;
+        gap: 16px;
+      }
+      
+      input[type="text"] {
+        width: 100%;
+        max-width: 300px;
+      }
+      
+      header {
+        font-size: 24px;
+        padding: 24px 16px 20px;
+      }
+      
+      .card {
+        padding: 24px 20px;
+      }
     }
   </style>
 </head>
@@ -229,7 +496,12 @@
   <div class="branding">by Ketan W</div>
   <div class="toggle-row">
     <label for="toggleArchived">Show Archived Reviews</label>
-    <input type="checkbox" id="toggleArchived" />
+    <label class="switch">
+      <input type="checkbox" id="toggleArchived">
+      <span class="slider"></span>
+    </label>
+    <label for="searchInput">Search using Store URL</label>
+    <input type="text" id="searchInput" placeholder="Enter Store URL" />
   </div>
   <div class="container">
     <div class="card-row">
