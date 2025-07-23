@@ -28,7 +28,32 @@
         }
       });
 
+      let allReviews = []; // Store all review data for filtering
+
       // Handle search input
+      function filterReviews(query) {
+        const activeCards = reviewContainer.querySelectorAll('.review-card');
+        const archivedCards = archivedContainer.querySelectorAll('.review-card');
+        
+        const searchCards = toggleArchived.checked ? archivedCards : activeCards;
+        
+        searchCards.forEach(card => {
+          const customerDomain = card.querySelector('.customer-domain');
+          const customerName = card.querySelector('.customer-name');
+          const reviewContent = card.querySelector('.review-content');
+          
+          const domainText = customerDomain ? customerDomain.textContent.toLowerCase() : '';
+          const nameText = customerName ? customerName.textContent.toLowerCase() : '';
+          const contentText = reviewContent ? reviewContent.textContent.toLowerCase() : '';
+          
+          const matchesSearch = domainText.includes(query) || 
+                               nameText.includes(query) || 
+                               contentText.includes(query);
+          
+          card.style.display = matchesSearch ? 'block' : 'none';
+        });
+      }
+
       searchInput.addEventListener('input', () => {
         const query = searchInput.value.toLowerCase();
         filterReviews(query);
@@ -124,6 +149,15 @@
               <p class="review-content">${cols[contentIdx] || '—'}</p>
             `;
 
+            // Store review data for search functionality
+            allReviews.push({
+              element: reviewCard,
+              customer: cols[customerIdx],
+              domain: cols[customerDomainIdx] || '',
+              content: cols[contentIdx] || '',
+              isArchived: isArchived
+            });
+
             if (isArchived) {
               archivedContainer.appendChild(reviewCard);
             } else {
@@ -190,10 +224,6 @@
       color: rgba(255, 255, 255, 0.7);
       font-weight: 300;
       letter-spacing: 0.5px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100%;
     }
 
     .toggle-row {
@@ -211,51 +241,6 @@
       color: var(--text-secondary);
       font-weight: 500;
       font-size: 14px;
-    }
-
-    .switch {
-      position: relative;
-      display: inline-block;
-      width: 34px;
-      height: 20px;
-    }
-
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #ccc;
-      transition: 0.4s;
-      border-radius: 50px;
-    }
-
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 12px;
-      width: 12px;
-      border-radius: 50px;
-      left: 4px;
-      bottom: 4px;
-      background-color: white;
-      transition: 0.4s;
-    }
-
-    input:checked + .slider {
-      background-color: #4facfe;
-    }
-
-    input:checked + .slider:before {
-      transform: translateX(14px);
     }
 
     .container {
@@ -496,10 +481,7 @@
   <div class="branding">by Ketan W</div>
   <div class="toggle-row">
     <label for="toggleArchived">Show Archived Reviews</label>
-    <label class="switch">
-      <input type="checkbox" id="toggleArchived">
-      <span class="slider"></span>
-    </label>
+    <input type="checkbox" id="toggleArchived" />
     <label for="searchInput">Search using Store URL</label>
     <input type="text" id="searchInput" placeholder="Enter Store URL" />
   </div>
